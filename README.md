@@ -1,6 +1,6 @@
 # Binge Reading Archive Page
 
-**Version:** 0.60
+**Version:** 0.61
 **Author:** [Eric Rosenberg](https://ericrosenberg.com)
 **WordPress Plugin URL:** [https://wordpress.org/plugins/all-posts-archive-page/](https://wordpress.org/plugins/all-posts-archive-page/)
 **Official Plugin Page:** [https://ericrosenberg.com/binge-reading-archive-page-template-for-wordpress/](https://ericrosenberg.com/binge-reading-archive-page-template-for-wordpress/)
@@ -96,6 +96,10 @@ When enabled, the plugin caches the archive output for faster page loads. The ca
 ---
 
 ## 🔄 Changelog
+
+### 0.61
+- Added Settings link to plugin list page for easier access to configuration
+- Updated plugin icon/logo with new branding
 
 ### 0.60
 - **NEW**: Performance caching system with configurable duration for faster page loads

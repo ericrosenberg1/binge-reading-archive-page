@@ -3,7 +3,7 @@
  * Plugin Name: Binge Reading Archive Page
  * Plugin URI:  https://ericrosenberg.com/binge-reading-archive-page-template-for-wordpress/
  * Description: Display all posts month-by-month for binge reading. Uses your theme's styling by default. Supports optional category filtering and flexible month formats.
- * Version:     0.60
+ * Version:     0.61
  * Requires at least: 5.0
  * Requires PHP: 7.0
  * Tested up to: 6.8
@@ -445,6 +445,19 @@ function brap_init_shortcodes() {
 	add_shortcode( 'binge_archive', 'brap_display_posts_by_month' );
 }
 add_action( 'init', 'brap_init_shortcodes' );
+
+/**
+ * Add settings link to plugin list page.
+ *
+ * @param array $links Existing plugin action links.
+ * @return array Modified plugin action links.
+ */
+function brap_add_settings_link( $links ) {
+	$settings_link = '<a href="' . esc_url( admin_url( 'options-general.php?page=all-posts-archive-page' ) ) . '">' . esc_html__( 'Settings', 'all-posts-archive-page' ) . '</a>';
+	array_unshift( $links, $settings_link );
+	return $links;
+}
+add_filter( 'plugin_action_links_' . plugin_basename( __FILE__ ), 'brap_add_settings_link' );
 
 /**
  * Adds a settings page under "Settings" with our options.
