@@ -5,7 +5,7 @@ Donate link: http://narrowbridgemedia.com/
 Requires at least: 5.0
 Requires PHP: 7.0
 Tested up to: 7.0
-Stable tag: 0.63
+Stable tag: 0.64
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
@@ -57,6 +57,9 @@ Yes, there is a settings page under "Settings" → "Binge Reading Archive" where
 2. Example front-end output using your theme's default styling.
 
 == Upgrade Notice ==
+= 0.64 =
+Fixes a fatal error ("Cannot load all-posts-archive-page") that could appear on translated, non-English sites after updating to 0.63. Please update.
+
 = 0.63 =
 This release adds post type and sort-order options, post counts, jump-to-year navigation, a custom date format and separator, and a security fix that keeps private posts out of cached output. Tested up to WordPress 7.0 and PHP 8.5.
 
@@ -64,6 +67,9 @@ This release adds post type and sort-order options, post counts, jump-to-year na
 Significant improvements have been introduced, including year/month heading controls and formatting options. Please visit the new settings page under "Settings" → "Binge Reading Archive" to configure or update your preferences. You can also choose whether to remove plugin data from your database upon uninstall.
 
 == Changelog ==
+= 0.64 =
+* Fixed a fatal error ("Cannot load all-posts-archive-page") that could appear on translated, non-English sites after updating to 0.63. A translation with a mismatched placeholder could crash the plugin and pause it. Formatted strings are now mismatch-proof, and the archive and settings page are wrapped so a bad translation can no longer disable the plugin. Thanks to tompasworld for the report.
+
 = 0.63 =
 * Added a sort order option (newest first or oldest first), with an `order` shortcode attribute
 * Added support for any public post type (posts, pages, custom types), with a `post_type` shortcode attribute

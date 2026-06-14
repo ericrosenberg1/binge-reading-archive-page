@@ -1,6 +1,6 @@
 # Binge Reading Archive Page
 
-**Version:** 0.63
+**Version:** 0.64
 **Author:** [Eric Rosenberg](https://ericrosenberg.com)
 **WordPress Plugin URL:** [https://wordpress.org/plugins/all-posts-archive-page/](https://wordpress.org/plugins/all-posts-archive-page/)
 **Official Plugin Page:** [https://ericrosenberg.com/binge-reading-archive-page-template-for-wordpress/](https://ericrosenberg.com/binge-reading-archive-page-template-for-wordpress/)
@@ -114,6 +114,9 @@ Yes. Set the post type on the settings page, or pass it per placement with `[bin
 ---
 
 ## 🔄 Changelog
+
+### 0.64
+- **Fix**: Resolved a fatal error ("Cannot load all-posts-archive-page") that could appear on non-English sites after updating to 0.63. A community translation with a mismatched placeholder threw an `ArgumentCountError`, tripping WordPress's fatal-error protection and pausing the plugin. All formatted strings are now placeholder-mismatch-proof, and the shortcode and settings page are wrapped in a safety net so a bad translation can't disable the plugin again. Thanks to tompasworld for the report.
 
 ### 0.63
 - **NEW**: Sort order toggle — list posts newest first or oldest first

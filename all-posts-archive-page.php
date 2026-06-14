@@ -3,7 +3,7 @@
  * Plugin Name: Binge Reading Archive Page
  * Plugin URI:  https://ericrosenberg.com/binge-reading-archive-page-template-for-wordpress/
  * Description: Display all posts month-by-month for binge reading. Uses your theme's styling by default. Supports optional category filtering and flexible month formats.
- * Version:     0.63
+ * Version:     0.64
  * Requires at least: 5.0
  * Requires PHP: 7.0
  * Tested up to: 7.0
@@ -428,7 +428,7 @@ add_action( 'wp_trash_post', 'brap_clear_cache_on_post_change' );
 function brap_count_label( $count ) {
 	$count = (int) $count;
 	/* translators: %s: number of posts */
-	$label = sprintf( _n( '%s post', '%s posts', $count, 'all-posts-archive-page' ), number_format_i18n( $count ) );
+	$label = str_replace( '%s', number_format_i18n( $count ), _n( '%s post', '%s posts', $count, 'all-posts-archive-page' ) );
 	return ' (' . $label . ')';
 }
 
@@ -639,8 +639,7 @@ function brap_display_posts_by_month( $atts = array() ) {
 
 			if ( 'on' === $add_month_header ) {
 				if ( 'on' === $show_year_in_month ) {
-					/* translators: 1: month, 2: year */
-					$month_heading = sprintf( __( '%1$s %2$s', 'all-posts-archive-page' ), $month_data['display'], $year_data['display'] );
+					$month_heading = $month_data['display'] . ' ' . $year_data['display'];
 				} else {
 					$month_heading = $month_data['display'];
 				}
@@ -689,7 +688,25 @@ function brap_display_posts_by_month( $atts = array() ) {
  * Registers a shortcode [binge_archive] that displays the archive.
  */
 function brap_init_shortcodes() {
-	add_shortcode( 'binge_archive', 'brap_display_posts_by_month' );
+	add_shortcode( 'binge_archive', 'brap_shortcode_handler' );
+}
+
+/**
+ * Shortcode handler: render the archive, but never let an unexpected error
+ * crash the page or trip WordPress's fatal-error protection.
+ *
+ * @param array $atts Shortcode attributes.
+ * @return string Archive HTML, or an empty string on error.
+ */
+function brap_shortcode_handler( $atts = array() ) {
+	try {
+		return brap_display_posts_by_month( $atts );
+	} catch ( \Throwable $e ) {
+		if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+			error_log( 'Binge Reading Archive Page render error: ' . $e->getMessage() );
+		}
+		return '';
+	}
 }
 add_action( 'init', 'brap_init_shortcodes' );
 
@@ -727,6 +744,27 @@ function brap_admin_page() {
 	if ( ! current_user_can( 'manage_options' ) ) {
 		wp_die( esc_html__( 'You do not have sufficient permissions to access this page.', 'all-posts-archive-page' ) );
 	}
+
+	try {
+		ob_start();
+		brap_render_admin_page();
+		echo ob_get_clean();
+	} catch ( \Throwable $e ) {
+		if ( ob_get_level() ) {
+			ob_end_clean();
+		}
+		if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+			error_log( 'Binge Reading Archive Page settings error: ' . $e->getMessage() );
+		}
+		echo '<div class="wrap"><h1>' . esc_html__( 'Binge Reading Archive Settings', 'all-posts-archive-page' ) . '</h1><div class="notice notice-error"><p>' . esc_html__( 'The settings page hit an unexpected error and could not fully load. Your site is unaffected. Please reload the page.', 'all-posts-archive-page' ) . '</p></div></div>';
+	}
+}
+
+/**
+ * Render the admin settings page body. Wrapped by brap_admin_page() so a
+ * stray error can't pause the plugin.
+ */
+function brap_render_admin_page() {
 
 	// Process form submission with nonce.
 	if (
@@ -1020,20 +1058,20 @@ function brap_admin_page() {
 			</p>
 			<p class="description">
 				<?php
-				printf(
-					/* translators: %s: PHP date format documentation URL */
-					wp_kses(
-						__( 'PHP <code>date()</code> format for each post. Leave blank to use your site\'s date format. <a href="%s" target="_blank" rel="noopener noreferrer">Format reference</a>.', 'all-posts-archive-page' ),
-						array(
-							'code' => array(),
-							'a'    => array(
-								'href'   => array(),
-								'target' => array(),
-								'rel'    => array(),
-							),
-						)
-					),
-					'https://www.php.net/manual/en/datetime.format.php'
+				$brap_date_help = __( 'PHP <code>date()</code> format for each post. Leave blank to use your site\'s date format.', 'all-posts-archive-page' )
+					. ' <a href="https://www.php.net/manual/en/datetime.format.php" target="_blank" rel="noopener noreferrer">'
+					. esc_html__( 'Format reference', 'all-posts-archive-page' )
+					. '</a>';
+				echo wp_kses(
+					$brap_date_help,
+					array(
+						'code' => array(),
+						'a'    => array(
+							'href'   => array(),
+							'target' => array(),
+							'rel'    => array(),
+						),
+					)
 				);
 				?>
 			</p>
@@ -1062,7 +1100,7 @@ function brap_admin_page() {
 				<span class="description">
 					<?php
 					/* translators: %s: number of hours */
-					echo esc_html( sprintf( __( 'Current setting: %s hours. Minimum: 5 minutes (300), Maximum: 7 days (604800).', 'all-posts-archive-page' ), number_format( $cache_duration / 3600, 1 ) ) );
+					echo esc_html( str_replace( '%s', number_format( $cache_duration / 3600, 1 ), __( 'Current setting: %s hours. Minimum: 5 minutes (300), Maximum: 7 days (604800).', 'all-posts-archive-page' ) ) );
 					?>
 				</span>
 			</p>
