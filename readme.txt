@@ -5,7 +5,7 @@ Donate link: http://narrowbridgemedia.com/
 Requires at least: 5.0
 Requires PHP: 7.0
 Tested up to: 7.0
-Stable tag: 0.64
+Stable tag: 0.65
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
@@ -53,10 +53,13 @@ Yes, there is a settings page under "Settings" → "Binge Reading Archive" where
 - Decide whether to remove the plugin’s database table when uninstalling
 
 == Screenshots ==
-1. Shortcode in the block editor.
-2. Example front-end output using your theme's default styling.
+1. Front-end archive output, grouped by month and year and styled by your theme.
+2. The settings page under Settings → Binge Reading Archive.
 
 == Upgrade Notice ==
+= 0.65 =
+Scheduled posts now appear in the archive as soon as they go live. Recommended update if you publish posts on a schedule.
+
 = 0.64 =
 Fixes a fatal error ("Cannot load all-posts-archive-page") that could appear on translated, non-English sites after updating to 0.63. Please update.
 
@@ -67,6 +70,12 @@ This release adds post type and sort-order options, post counts, jump-to-year na
 Significant improvements have been introduced, including year/month heading controls and formatting options. Please visit the new settings page under "Settings" → "Binge Reading Archive" to configure or update your preferences. You can also choose whether to remove plugin data from your database upon uninstall.
 
 == Changelog ==
+= 0.65 =
+* Fixed: scheduled posts now clear the archive cache when they go live. The cache now keys off post status changes (transition_post_status) instead of save_post, so a post published by WordPress cron shows up right away instead of waiting for the cache to expire.
+* Accessibility: the settings page now suggests heading levels that keep a logical outline (for example, year H2 and month H3) so screen readers can follow along.
+* Added a hyphenated CSS class (binge-archive-post-date) alongside the original archive_post_date class for easier, consistent styling. Existing styles keep working.
+* Housekeeping: the settings table now uses a proper PRIMARY KEY and a dbDelta-friendly schema. No action needed on existing sites.
+
 = 0.64 =
 * Fixed a fatal error ("Cannot load all-posts-archive-page") that could appear on translated, non-English sites after updating to 0.63. A translation with a mismatched placeholder could crash the plugin and pause it. Formatted strings are now mismatch-proof, and the archive and settings page are wrapped so a bad translation can no longer disable the plugin. Thanks to tompasworld for the report.
 

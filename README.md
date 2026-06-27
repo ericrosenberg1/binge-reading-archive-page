@@ -1,6 +1,6 @@
 # Binge Reading Archive Page
 
-**Version:** 0.64
+**Version:** 0.65
 **Author:** [Eric Rosenberg](https://ericrosenberg.com)
 **WordPress Plugin URL:** [https://wordpress.org/plugins/all-posts-archive-page/](https://wordpress.org/plugins/all-posts-archive-page/)
 **Official Plugin Page:** [https://ericrosenberg.com/binge-reading-archive-page-template-for-wordpress/](https://ericrosenberg.com/binge-reading-archive-page-template-for-wordpress/)
@@ -80,8 +80,8 @@ The `category`, `post_type`, and `order` attributes override the saved settings 
 
 ## 📸 Screenshots
 
-1. Shortcode in the block editor
-2. Live example of month-by-month archive output using your theme's styling
+1. Front-end archive output, grouped by month and year and styled by your theme
+2. The settings page (Settings → Binge Reading Archive)
 
 ---
 
@@ -114,6 +114,12 @@ Yes. Set the post type on the settings page, or pass it per placement with `[bin
 ---
 
 ## 🔄 Changelog
+
+### 0.65
+- **Fix**: Scheduled posts now clear the archive cache the moment they go live. Cache invalidation moved from `save_post` to `transition_post_status`, so a post published by WordPress cron appears in the archive right away instead of waiting for the cache to expire.
+- **Accessibility**: The settings page now recommends heading levels that keep a logical document outline (e.g. year `H2`, month `H3`) so screen readers can follow the structure.
+- **Styling**: Added a hyphenated `binge-archive-post-date` CSS class alongside the original `archive_post_date` so styling matches the other `binge-archive-*` classes. Existing CSS keeps working.
+- **Housekeeping**: The settings table now declares a proper `PRIMARY KEY` with a dbDelta-friendly schema. No action needed on existing installs.
 
 ### 0.64
 - **Fix**: Resolved a fatal error ("Cannot load all-posts-archive-page") that could appear on non-English sites after updating to 0.63. A community translation with a mismatched placeholder threw an `ArgumentCountError`, tripping WordPress's fatal-error protection and pausing the plugin. All formatted strings are now placeholder-mismatch-proof, and the shortcode and settings page are wrapped in a safety net so a bad translation can't disable the plugin again. Thanks to tompasworld for the report.

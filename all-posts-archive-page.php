@@ -3,7 +3,7 @@
  * Plugin Name: Binge Reading Archive Page
  * Plugin URI:  https://ericrosenberg.com/binge-reading-archive-page-template-for-wordpress/
  * Description: Display all posts month-by-month for binge reading. Uses your theme's styling by default. Supports optional category filtering and flexible month formats.
- * Version:     0.64
+ * Version:     0.65
  * Requires at least: 5.0
  * Requires PHP: 7.0
  * Tested up to: 7.0
@@ -41,11 +41,12 @@ function brap_activate() {
 	$table_name      = $wpdb->prefix . 'brap_settings';
 	$charset_collate = $wpdb->get_charset_collate();
 
-	$sql = "CREATE TABLE IF NOT EXISTS $table_name (
+	// dbDelta is picky: no IF NOT EXISTS, two spaces after PRIMARY KEY, one field per line.
+	$sql = "CREATE TABLE $table_name (
 		id mediumint(9) NOT NULL AUTO_INCREMENT,
 		setting_name varchar(50) NOT NULL,
 		setting_value varchar(50) NOT NULL,
-		UNIQUE KEY id (id),
+		PRIMARY KEY  (id),
 		UNIQUE KEY setting_name (setting_name)
 	) $charset_collate;";
 
@@ -408,16 +409,36 @@ function brap_delete_cached_output() {
 }
 
 /**
- * Bump the cache version when a post is published, updated, or deleted.
+ * Bump the cache version when a post is permanently deleted.
  *
  * @return void
  */
 function brap_clear_cache_on_post_change() {
 	brap_bump_cache_version();
 }
-add_action( 'save_post', 'brap_clear_cache_on_post_change' );
 add_action( 'delete_post', 'brap_clear_cache_on_post_change' );
-add_action( 'wp_trash_post', 'brap_clear_cache_on_post_change' );
+
+/**
+ * Bump the cache version on any status change that touches a published post.
+ *
+ * Using transition_post_status (rather than save_post) catches scheduled posts
+ * that go live via cron, which call wp_publish_post() without firing save_post.
+ * It also covers publish, unpublish, trash, and edits to an already-published
+ * post. Revisions and autosaves carry the 'inherit'/'draft' status, so they are
+ * ignored and do not needlessly invalidate the cache.
+ *
+ * @param string  $new_status New post status.
+ * @param string  $old_status Old post status.
+ * @param WP_Post $post       The post being transitioned.
+ * @return void
+ */
+function brap_clear_cache_on_transition( $new_status, $old_status, $post ) {
+	unset( $post );
+	if ( 'publish' === $new_status || 'publish' === $old_status ) {
+		brap_bump_cache_version();
+	}
+}
+add_action( 'transition_post_status', 'brap_clear_cache_on_transition', 10, 3 );
 
 /**
  * Format a "(N posts)" count label for headings.
@@ -656,7 +677,7 @@ function brap_display_posts_by_month( $atts = array() ) {
 			foreach ( $month_data['posts'] as $post_data ) {
 				if ( 'on' === $show_post_date ) {
 					printf(
-						'<li><a href="%1$s"><span class="archive_post_date">%2$s%3$s</span>%4$s</a></li>',
+						'<li><a href="%1$s"><span class="archive_post_date binge-archive-post-date">%2$s%3$s</span>%4$s</a></li>',
 						esc_url( $post_data['url'] ),
 						esc_html( $post_data['date'] ),
 						esc_html( $separator ),
@@ -973,6 +994,7 @@ function brap_render_admin_page() {
 					<?php endforeach; ?>
 				</select>
 			</p>
+			<p class="description"><?php esc_html_e( 'For accessibility, pick a level one step below your page title (most themes use H1 for the title, so H2 here). Avoid skipping levels.', 'all-posts-archive-page' ); ?></p>
 
 			<label for="show_year_nav">
 				<input type="checkbox" name="show_year_nav" id="show_year_nav" <?php checked( $show_year_nav, 'on' ); ?> />
@@ -1003,6 +1025,7 @@ function brap_render_admin_page() {
 					<?php endforeach; ?>
 				</select>
 			</p>
+			<p class="description"><?php esc_html_e( 'Keep months one level below your year heading (for example, year H2 and month H3) so screen readers can follow the outline.', 'all-posts-archive-page' ); ?></p>
 
 			<label for="show_year_in_month_header">
 				<input type="checkbox" name="show_year_in_month_header" id="show_year_in_month_header" <?php checked( $show_year_in_month, 'on' ); ?> />
