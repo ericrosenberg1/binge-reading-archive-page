@@ -1,6 +1,6 @@
 # Binge Reading Archive Page
 
-**Version:** 0.65
+**Version:** 0.66
 **Author:** [Eric Rosenberg](https://ericrosenberg.com)
 **WordPress Plugin URL:** [https://wordpress.org/plugins/all-posts-archive-page/](https://wordpress.org/plugins/all-posts-archive-page/)
 **Official Plugin Page:** [https://ericrosenberg.com/binge-reading-archive-page-template-for-wordpress/](https://ericrosenberg.com/binge-reading-archive-page-template-for-wordpress/)
@@ -23,9 +23,9 @@
 - **Show/hide post dates**, with a custom date format and date/title separator
 - Settings page under **Settings → Binge Reading Archive**
 - Automatically inherits your theme's typography and layout
-- Compatible with **WordPress 5.0+** and **PHP 7.0+**
-- Recommended: **WordPress 6.5+** and **PHP 8.1+**
-- Tested up to **WordPress 7.0** and **PHP 8.5**
+- Compatible with **WordPress 5.0+** and **PHP 7.4+**
+- Recommended: **WordPress 6.5+** and **PHP 8.2+**
+- Tested up to **WordPress 7.1** and **PHP 8.5**
 - Clean uninstall option (choose to keep or remove settings)
 - No theme dependencies
 
@@ -115,6 +115,12 @@ Yes. Set the post type on the settings page, or pass it per placement with `[bin
 
 ## 🔄 Changelog
 
+### 0.66
+- **Fix**: Renaming or deleting a category no longer risks serving a stale, category-filtered archive from cache. Category term changes now bump the cache version, the same way post and settings changes already did.
+- **Performance**: When output caching is turned off in Settings, the archive no longer builds and hashes a cache key it will never use.
+- **Compatibility**: Reviewed against the WordPress 7.1 field guide. No block editor integration, admin JavaScript, or bundled scripts here, so the 7.1 editor/toolbar/SVG-icon/jQuery UI changes don't apply. Tested up to WordPress 7.1.
+- **Requirements**: Raised the minimum PHP version from 7.0 to 7.4 (7.0 has been unsupported since 2019, and the plugin already recommended 8.1+). Recommended PHP bumped to 8.2+ to match currently supported branches.
+
 ### 0.65
 - **Fix**: Scheduled posts now clear the archive cache the moment they go live. Cache invalidation moved from `save_post` to `transition_post_status`, so a post published by WordPress cron appears in the archive right away instead of waiting for the cache to expire.
 - **Accessibility**: The settings page now recommends heading levels that keep a logical document outline (e.g. year `H2`, month `H3`) so screen readers can follow the structure.
@@ -179,6 +185,9 @@ Yes. Set the post type on the settings page, or pass it per placement with `[bin
 ---
 
 ## 📦 Upgrade Notice
+
+### 0.66
+Now requires PHP 7.4+ (up from 7.0, which has been unsupported since 2019). Also fixes a cache edge case around renamed/deleted categories and confirms compatibility with WordPress 7.1.
 
 ### 0.63
 This release adds post type and sort-order options, post counts, jump-to-year navigation, a custom date format and separator, plus a security fix that keeps private posts out of cached output. Cache invalidation now works with external object caches. Tested up to WordPress 7.0 and PHP 8.5. Visit **Settings → Binge Reading Archive** to try the new options.

@@ -3,12 +3,12 @@
  * Plugin Name: Binge Reading Archive Page
  * Plugin URI:  https://ericrosenberg.com/binge-reading-archive-page-template-for-wordpress/
  * Description: Display all posts month-by-month for binge reading. Uses your theme's styling by default. Supports optional category filtering and flexible month formats.
- * Version:     0.65
+ * Version:     0.66
  * Requires at least: 5.0
- * Requires PHP: 7.0
- * Tested up to: 7.0
+ * Requires PHP: 7.4
+ * Tested up to: 7.1
  * PHP tested up to: 8.5
- * Recommended: WordPress 6.5+, PHP 8.1+
+ * Recommended: WordPress 6.5+, PHP 8.2+
  * Author:      Eric Rosenberg
  * Author URI:  https://ericrosenberg.com
  * Text Domain: all-posts-archive-page
@@ -441,6 +441,47 @@ function brap_clear_cache_on_transition( $new_status, $old_status, $post ) {
 add_action( 'transition_post_status', 'brap_clear_cache_on_transition', 10, 3 );
 
 /**
+ * Bump the cache version when a category term is renamed, re-slugged, or
+ * re-parented via wp_update_term().
+ *
+ * The archive's cache key is built from the *validated* category slug
+ * (see brap_get_effective_category_slug()), not the term ID. If a category
+ * used as the default filter gets its slug changed, the old cache entries
+ * are simply orphaned (harmless but wasted). Without this hook, visitors
+ * could keep seeing output rendered against the pre-rename slug until the
+ * transient's natural expiry. Bumping here makes the change take effect on
+ * the next page view instead.
+ *
+ * @param int    $term_id  Term ID (unused).
+ * @param string $taxonomy Taxonomy slug.
+ * @return void
+ */
+function brap_clear_cache_on_term_edit( $term_id, $taxonomy ) {
+	unset( $term_id );
+	if ( 'category' === $taxonomy ) {
+		brap_bump_cache_version();
+	}
+}
+add_action( 'edited_terms', 'brap_clear_cache_on_term_edit', 10, 2 );
+
+/**
+ * Bump the cache version when a category term is deleted.
+ *
+ * @param int    $term_id      Term ID (unused).
+ * @param int    $tt_id        Term taxonomy ID (unused).
+ * @param string $taxonomy     Taxonomy slug.
+ * @param mixed  $deleted_term Copy of the deleted term object (unused).
+ * @return void
+ */
+function brap_clear_cache_on_term_delete( $term_id, $tt_id, $taxonomy, $deleted_term ) {
+	unset( $term_id, $tt_id, $deleted_term );
+	if ( 'category' === $taxonomy ) {
+		brap_bump_cache_version();
+	}
+}
+add_action( 'delete_term', 'brap_clear_cache_on_term_delete', 10, 4 );
+
+/**
  * Format a "(N posts)" count label for headings.
  *
  * @param int $count Number of posts.
@@ -484,21 +525,26 @@ function brap_display_posts_by_month( $atts = array() ) {
 	$enable_cache   = $enable_cache ? $enable_cache : 'on';
 	$cache_duration = $cache_duration ? absint( $cache_duration ) : 43200;
 
-	// Cache key varies only by what actually changes the output per instance.
-	// Settings/post changes bump the cache version, so they need not be keyed.
-	$cache_key = 'brap_archive_' . md5(
-		wp_json_encode(
-			array(
-				'v'         => brap_get_cache_version(),
-				'category'  => $category_slug,
-				'post_type' => $post_type,
-				'order'     => $order,
-				'locale'    => get_locale(),
-			)
-		)
-	);
+	// Only build a cache key when caching is actually enabled. Computing it
+	// (which reads the cache-version option and hashes a JSON payload) is
+	// wasted work on every render for sites that have turned caching off.
+	$cache_key = '';
 
 	if ( 'on' === $enable_cache ) {
+		// Cache key varies only by what actually changes the output per instance.
+		// Settings/post changes bump the cache version, so they need not be keyed.
+		$cache_key = 'brap_archive_' . md5(
+			wp_json_encode(
+				array(
+					'v'         => brap_get_cache_version(),
+					'category'  => $category_slug,
+					'post_type' => $post_type,
+					'order'     => $order,
+					'locale'    => get_locale(),
+				)
+			)
+		);
+
 		$cached_output = get_transient( $cache_key );
 		if ( false !== $cached_output ) {
 			return $cached_output;

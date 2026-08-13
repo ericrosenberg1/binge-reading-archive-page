@@ -3,9 +3,9 @@ Contributors: Eric1985
 Tags: archive, posts listing, binge reading, all themes
 Donate link: http://narrowbridgemedia.com/
 Requires at least: 5.0
-Requires PHP: 7.0
-Tested up to: 7.0
-Stable tag: 0.65
+Requires PHP: 7.4
+Tested up to: 7.1
+Stable tag: 0.66
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
@@ -14,7 +14,7 @@ A plugin to create an "all posts since this site started by month" listing. Work
 == Description ==
 This plugin displays all posts by month in a chronological format for easy binge reading. You can simply add the shortcode `[binge_archive]` anywhere on your site to create a month-by-month archive of every post. It's a great way for new readers to dive into your entire blog history!
 
-Requires WordPress 5.0+ and PHP 7.0+ (WordPress 6.5+ and PHP 8.1+ recommended). Tested up to WordPress 7.0 and PHP 8.5.
+Requires WordPress 5.0+ and PHP 7.4+ (WordPress 6.5+ and PHP 8.2+ recommended). Tested up to WordPress 7.1 and PHP 8.5.
 
 For more details, visit the official plugin page here:
 [https://ericrosenberg.com/binge-reading-archive-page-template-for-wordpress/](https://ericrosenberg.com/binge-reading-archive-page-template-for-wordpress/)
@@ -57,6 +57,9 @@ Yes, there is a settings page under "Settings" → "Binge Reading Archive" where
 2. The settings page under Settings → Binge Reading Archive.
 
 == Upgrade Notice ==
+= 0.66 =
+Now requires PHP 7.4+ (up from 7.0, which has been unsupported since 2019). Also fixes a cache edge case around renamed/deleted categories and confirms compatibility with WordPress 7.1.
+
 = 0.65 =
 Scheduled posts now appear in the archive as soon as they go live. Recommended update if you publish posts on a schedule.
 
@@ -70,6 +73,12 @@ This release adds post type and sort-order options, post counts, jump-to-year na
 Significant improvements have been introduced, including year/month heading controls and formatting options. Please visit the new settings page under "Settings" → "Binge Reading Archive" to configure or update your preferences. You can also choose whether to remove plugin data from your database upon uninstall.
 
 == Changelog ==
+= 0.66 =
+* Fixed: renaming or deleting a category no longer risks serving a stale, category-filtered archive from cache. Category term changes now bump the cache version, the same way post and settings changes already did.
+* Performance: when output caching is turned off in Settings, the archive no longer builds and hashes a cache key it will never use.
+* Reviewed against the WordPress 7.1 field guide. This plugin has no block editor integration, admin JavaScript, or bundled scripts, so the 7.1 editor/toolbar/SVG-icon/jQuery UI changes don't apply. Tested up to WordPress 7.1.
+* Raised the minimum required PHP version from 7.0 to 7.4. PHP 7.0 has been unsupported since 2019, and the plugin already recommended PHP 8.1+; the code itself needed no changes to make the jump. "Recommended" PHP bumped to 8.2+ to match currently supported PHP branches.
+
 = 0.65 =
 * Fixed: scheduled posts now clear the archive cache when they go live. The cache now keys off post status changes (transition_post_status) instead of save_post, so a post published by WordPress cron shows up right away instead of waiting for the cache to expire.
 * Accessibility: the settings page now suggests heading levels that keep a logical outline (for example, year H2 and month H3) so screen readers can follow along.
