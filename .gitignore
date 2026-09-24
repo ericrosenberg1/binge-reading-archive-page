@@ -48,3 +48,7 @@ wp-config.php
 #/wp-content/themes
 # macOS
 .DS_Store
+
+# Environment files (secrets)
+.env
+.env.*
