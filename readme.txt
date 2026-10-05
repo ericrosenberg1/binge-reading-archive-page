@@ -5,7 +5,7 @@ Donate link: http://narrowbridgemedia.com/
 Requires at least: 6.0
 Requires PHP: 8.0
 Tested up to: 7.1
-Stable tag: 0.69
+Stable tag: 0.70
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
@@ -57,6 +57,9 @@ Yes, there is a settings page under "Settings" → "Binge Reading Archive" where
 2. The settings page under Settings → Binge Reading Archive.
 
 == Upgrade Notice ==
+= 0.70 =
+Fixes settings saving on some hosts and the uninstall option, which now keeps your settings unless you tick the removal box.
+
 = 0.69 =
 Adds a Details link on the Plugins screen and a short list of the author's other plugins on the settings page.
 
@@ -79,6 +82,11 @@ This release adds post type and sort-order options, post counts, jump-to-year na
 Significant improvements have been introduced, including year/month heading controls and formatting options. Please visit the new settings page under "Settings" → "Binge Reading Archive" to configure or update your preferences. You can also choose whether to remove plugin data from your database upon uninstall.
 
 == Changelog ==
+= 0.70 =
+* Fixed: settings are now saved before the page loads, so the redirect after saving works on every host.
+* Fixed: uninstalling no longer deletes settings when "remove data" is unchecked.
+* Replaced the deprecated get_terms() call and removed unused code.
+
 = 0.69 =
 * Added a Details link on the Plugins screen.
 * Added an "Other WordPress Plugins" section to the settings page.

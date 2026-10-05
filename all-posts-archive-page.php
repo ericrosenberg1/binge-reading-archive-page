@@ -3,7 +3,7 @@
  * Plugin Name: Binge Reading Archive Page
  * Plugin URI:  https://ericrosenberg.com/binge-reading-archive-page-template-for-wordpress/
  * Description: Display all posts month-by-month for binge reading. Uses your theme's styling by default. Supports optional category filtering and flexible month formats.
- * Version:     0.69
+ * Version:     0.70
  * Requires at least: 6.4
  * Requires PHP: 8.0
  * Tested up to: 7.1
@@ -19,12 +19,12 @@
  * @package BingeReadingArchivePage
  */
 
-// Allowed heading levels for reuse.
-define( 'BRAP_ALLOWED_HEADING_LEVELS', array( 'h1', 'h2', 'h3', 'h4', 'h5', 'h6' ) );
-
 if ( ! defined( 'ABSPATH' ) ) {
 	exit; // Prevent direct access.
 }
+
+// Allowed heading levels for reuse.
+define( 'BRAP_ALLOWED_HEADING_LEVELS', array( 'h1', 'h2', 'h3', 'h4', 'h5', 'h6' ) );
 
 /**
  * Load text domain for i18n.
@@ -44,33 +44,12 @@ add_action( 'plugins_loaded', 'brap_load_textdomain' );
  */
 register_activation_hook( __FILE__, 'brap_activate' );
 function brap_activate() {
-	$defaults = brap_default_settings();
+	// Migrates pre-0.68 individual options into 'brap_settings' when present.
+	brap_flush_settings_cache();
+	brap_get_all_settings();
 
-	// Single option approach: one DB write instead of ~20.
-	// Also handles migration from the old individual-options format.
-	$found_individual = false;
-	foreach ( array_keys( $defaults ) as $name ) {
-		if ( false !== get_option( 'brap_' . $name ) ) {
-			$found_individual = true;
-			break;
-		}
-	}
-
-	if ( $found_individual ) {
-		// Migrate individual options into a single consolidated option.
-		$settings = array();
-		foreach ( $defaults as $name => $default_value ) {
-			$val = get_option( 'brap_' . $name );
-			$settings[ $name ] = ( false !== $val ) ? (string) $val : $default_value;
-		}
-		update_option( 'brap_settings', $settings );
-		// Clean up individual options.
-		foreach ( array_keys( $defaults ) as $name ) {
-			delete_option( 'brap_' . $name );
-		}
-	} else {
-		add_option( 'brap_settings', $defaults, '', true );
-	}
+	// No-op when the option already exists.
+	add_option( 'brap_settings', brap_default_settings(), '', true );
 }
 
 /**
@@ -123,10 +102,12 @@ function brap_default_settings() {
 register_uninstall_hook( __FILE__, 'brap_uninstall' );
 function brap_uninstall() {
 	// Check user's preference for removing data.
-	$remove_data = get_option( 'brap_remove_db_table_on_uninstall' );
+	$settings    = get_option( 'brap_settings' );
+	$remove_data = is_array( $settings ) && isset( $settings['remove_db_table_on_uninstall'] )
+		? $settings['remove_db_table_on_uninstall']
+		: get_option( 'brap_remove_db_table_on_uninstall', 'no' );
 
-	// If user chose 'yes' (or anything non-'no'), remove everything.
-	if ( 'no' !== $remove_data ) {
+	if ( 'yes' === $remove_data ) {
 		delete_option( 'brap_settings' );
 		// Also clean up any leftover individual options from older versions.
 		$defaults = brap_default_settings();
@@ -228,24 +209,6 @@ function brap_get_setting( $name ) {
 	}
 
 	return false;
-}
-
-/**
- * Helper: update a setting in the consolidated options array.
- *
- * Reads, updates, and writes back the single 'brap_settings' option
- * so that one setting change is one DB write (not 19 writes for the
- * entire settings form).
- *
- * @param string $name  Setting name.
- * @param string $value Setting value.
- * @return void
- */
-function brap_update_setting( $name, $value ) {
-	$settings = get_option( 'brap_settings', brap_default_settings() );
-	$settings[ $name ] = $value;
-	update_option( 'brap_settings', $settings );
-	brap_flush_settings_cache();
 }
 
 /**
@@ -531,7 +494,6 @@ function brap_display_posts_by_month( $atts = array() ) {
 	// Caching settings.
 	$enable_cache   = brap_get_setting( 'enable_cache' );
 	$cache_duration = brap_get_setting( 'cache_duration' );
-	$enable_cache   = $enable_cache ? $enable_cache : 'on';
 	$cache_duration = $cache_duration ? absint( $cache_duration ) : 43200;
 
 	// Only build a cache key when caching is actually enabled. Computing it
@@ -573,21 +535,9 @@ function brap_display_posts_by_month( $atts = array() ) {
 	$show_year_nav      = brap_get_setting( 'show_year_nav' );
 	$show_post_count    = brap_get_setting( 'show_post_count' );
 
-	// Fallback defaults.
-	$add_year_header    = $add_year_header ? $add_year_header : 'off';
-	$year_header_level  = $year_header_level ? $year_header_level : 'h2';
-	$add_month_header   = $add_month_header ? $add_month_header : 'on';
-	$month_header_level = $month_header_level ? $month_header_level : 'h3';
-	$show_year_in_month = $show_year_in_month ? $show_year_in_month : 'on';
-	$month_format       = $month_format ? $month_format : 'MMM';
-	$year_format        = $year_format ? $year_format : 'YYYY';
-	$show_post_date     = $show_post_date ? $show_post_date : 'on';
-	$show_year_nav      = $show_year_nav ? $show_year_nav : 'off';
-	$show_post_count    = $show_post_count ? $show_post_count : 'off';
-
-	// Separator: false (unset) keeps the historical default; '' is honored if explicitly saved.
+	// Read raw: '' is a valid saved separator and brap_get_setting() would turn it into false.
 	$settings  = brap_get_all_settings();
-	$separator = isset( $settings['date_title_separator'] ) ? $settings['date_title_separator'] : ' - ';
+	$separator = $settings['date_title_separator'];
 
 	// Date format for each post: empty means use the site's configured format.
 	$post_date_format = ( is_string( $post_date_format ) && '' !== $post_date_format )
@@ -837,118 +787,128 @@ function brap_admin_page() {
 }
 
 /**
+ * Save the settings form. Runs on admin_init, before any output, so the
+ * redirect below can send headers (it can't from inside the page callback).
+ */
+function brap_handle_settings_save() {
+	if ( ! isset( $_POST['brap_save_settings'], $_POST['brap_save_settings_nonce'] ) ) {
+		return;
+	}
+	if ( ! current_user_can( 'manage_options' ) ) {
+		return;
+	}
+	if ( ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['brap_save_settings_nonce'] ) ), 'brap_save_settings_action' ) ) {
+		return;
+	}
+
+	// Sanitize and validate all inputs.
+	$add_year_header     = isset( $_POST['add_year_header'] ) ? 'on' : 'off';
+	$add_month_header    = isset( $_POST['add_month_header'] ) ? 'on' : 'off';
+	$show_year_in_month  = isset( $_POST['show_year_in_month_header'] ) ? 'on' : 'off';
+	$show_post_date      = isset( $_POST['show_post_date'] ) ? 'on' : 'off';
+	$show_year_nav       = isset( $_POST['show_year_nav'] ) ? 'on' : 'off';
+	$show_post_count     = isset( $_POST['show_post_count'] ) ? 'on' : 'off';
+	$enable_cache        = isset( $_POST['enable_cache'] ) ? 'on' : 'off';
+	$remove_on_uninstall = isset( $_POST['remove_db_table_on_uninstall'] ) ? 'yes' : 'no';
+
+	$year_header_level  = isset( $_POST['year_header_level'] ) ? sanitize_text_field( wp_unslash( $_POST['year_header_level'] ) ) : 'h2';
+	$month_header_level = isset( $_POST['month_header_level'] ) ? sanitize_text_field( wp_unslash( $_POST['month_header_level'] ) ) : 'h3';
+
+	$month_format = isset( $_POST['month_format'] ) ? sanitize_text_field( wp_unslash( $_POST['month_format'] ) ) : 'MMM';
+	$year_format  = isset( $_POST['year_format'] ) ? sanitize_text_field( wp_unslash( $_POST['year_format'] ) ) : 'YYYY';
+
+	$post_order = isset( $_POST['post_order'] ) ? strtoupper( sanitize_text_field( wp_unslash( $_POST['post_order'] ) ) ) : 'DESC';
+	$post_order = ( 'ASC' === $post_order ) ? 'ASC' : 'DESC';
+
+	$post_type = isset( $_POST['post_type'] ) ? sanitize_key( wp_unslash( $_POST['post_type'] ) ) : 'post';
+	$pt_obj    = get_post_type_object( $post_type );
+	if ( ! $pt_obj || empty( $pt_obj->public ) ) {
+		$post_type = 'post';
+	}
+
+	// Date format: keep it as a date() pattern; strip tags but preserve spacing.
+	$post_date_format = isset( $_POST['post_date_format'] ) ? wp_strip_all_tags( wp_unslash( $_POST['post_date_format'] ) ) : '';
+	$post_date_format = substr( $post_date_format, 0, 50 );
+
+	// Separator: strip tags but DO NOT trim (leading/trailing spaces are meaningful).
+	$date_title_separator = isset( $_POST['date_title_separator'] ) ? wp_kses( wp_unslash( $_POST['date_title_separator'] ), array() ) : ' - ';
+	$date_title_separator = substr( $date_title_separator, 0, 20 );
+
+	$cache_duration = isset( $_POST['cache_duration'] ) ? absint( wp_unslash( $_POST['cache_duration'] ) ) : 43200;
+	if ( $cache_duration < 300 ) {
+		$cache_duration = 300; // Minimum 5 minutes.
+	}
+	if ( $cache_duration > 604800 ) {
+		$cache_duration = 604800; // Maximum 7 days.
+	}
+
+	// Validate against allowed lists.
+	if ( ! in_array( $year_header_level, BRAP_ALLOWED_HEADING_LEVELS, true ) ) {
+		$year_header_level = 'h2';
+	}
+	if ( ! in_array( $month_header_level, BRAP_ALLOWED_HEADING_LEVELS, true ) ) {
+		$month_header_level = 'h3';
+	}
+
+	$allowed_month_formats = array( 'MM', 'MMM', 'M', 'MMMM' );
+	if ( ! in_array( $month_format, $allowed_month_formats, true ) ) {
+		$month_format = 'MMM';
+	}
+
+	$allowed_year_formats = array( 'YY', 'YYYY' );
+	if ( ! in_array( $year_format, $allowed_year_formats, true ) ) {
+		$year_format = 'YYYY';
+	}
+
+	// Category filter from a dropdown of categories (slug).
+	$category_filter_slug = '';
+	if ( isset( $_POST['category_filter'] ) ) {
+		$category_filter_slug = sanitize_title( wp_unslash( $_POST['category_filter'] ) );
+		if ( '' !== $category_filter_slug ) {
+			$term = get_term_by( 'slug', $category_filter_slug, 'category' );
+			if ( ! $term || is_wp_error( $term ) ) {
+				$category_filter_slug = '';
+			}
+		}
+	}
+
+	// Save all settings in a single DB write via the consolidated option.
+	$settings = brap_get_all_settings();
+	$settings['add_year_header']           = $add_year_header;
+	$settings['year_header_level']         = $year_header_level;
+	$settings['add_month_header']          = $add_month_header;
+	$settings['month_header_level']        = $month_header_level;
+	$settings['show_year_in_month_header'] = $show_year_in_month;
+	$settings['month_format']              = $month_format;
+	$settings['year_format']               = $year_format;
+	$settings['post_order']                = $post_order;
+	$settings['post_type']                 = $post_type;
+	$settings['post_date_format']          = $post_date_format;
+	$settings['date_title_separator']      = $date_title_separator;
+	$settings['show_year_nav']             = $show_year_nav;
+	$settings['show_post_count']           = $show_post_count;
+	$settings['show_post_date']            = $show_post_date;
+	$settings['enable_cache']              = $enable_cache;
+	$settings['cache_duration']            = (string) $cache_duration;
+	$settings['remove_db_table_on_uninstall'] = $remove_on_uninstall;
+	$settings['category_filter']           = $category_filter_slug;
+	update_option( 'brap_settings', $settings );
+	brap_flush_settings_cache();
+
+	// Invalidate cached output now that settings changed.
+	brap_bump_cache_version();
+
+	// Redirect to avoid form re-submission on page refresh.
+	wp_safe_redirect( admin_url( 'options-general.php?page=all-posts-archive-page&settings-updated=true' ) );
+	exit;
+}
+add_action( 'admin_init', 'brap_handle_settings_save' );
+
+/**
  * Render the admin settings page body. Wrapped by brap_admin_page() so a
  * stray error can't pause the plugin.
  */
 function brap_render_admin_page() {
-
-	// Process form submission with nonce.
-	if (
-		isset( $_POST['brap_save_settings'] ) &&
-		isset( $_POST['brap_save_settings_nonce'] ) &&
-		wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['brap_save_settings_nonce'] ) ), 'brap_save_settings_action' )
-	) {
-		// Sanitize and validate all inputs.
-		$add_year_header     = isset( $_POST['add_year_header'] ) ? 'on' : 'off';
-		$add_month_header    = isset( $_POST['add_month_header'] ) ? 'on' : 'off';
-		$show_year_in_month  = isset( $_POST['show_year_in_month_header'] ) ? 'on' : 'off';
-		$show_post_date      = isset( $_POST['show_post_date'] ) ? 'on' : 'off';
-		$show_year_nav       = isset( $_POST['show_year_nav'] ) ? 'on' : 'off';
-		$show_post_count     = isset( $_POST['show_post_count'] ) ? 'on' : 'off';
-		$enable_cache        = isset( $_POST['enable_cache'] ) ? 'on' : 'off';
-		$remove_on_uninstall = isset( $_POST['remove_db_table_on_uninstall'] ) ? 'yes' : 'no';
-
-		$year_header_level  = isset( $_POST['year_header_level'] ) ? sanitize_text_field( wp_unslash( $_POST['year_header_level'] ) ) : 'h2';
-		$month_header_level = isset( $_POST['month_header_level'] ) ? sanitize_text_field( wp_unslash( $_POST['month_header_level'] ) ) : 'h3';
-
-		$month_format = isset( $_POST['month_format'] ) ? sanitize_text_field( wp_unslash( $_POST['month_format'] ) ) : 'MMM';
-		$year_format  = isset( $_POST['year_format'] ) ? sanitize_text_field( wp_unslash( $_POST['year_format'] ) ) : 'YYYY';
-
-		$post_order = isset( $_POST['post_order'] ) ? strtoupper( sanitize_text_field( wp_unslash( $_POST['post_order'] ) ) ) : 'DESC';
-		$post_order = ( 'ASC' === $post_order ) ? 'ASC' : 'DESC';
-
-		$post_type = isset( $_POST['post_type'] ) ? sanitize_key( wp_unslash( $_POST['post_type'] ) ) : 'post';
-		$pt_obj    = get_post_type_object( $post_type );
-		if ( ! $pt_obj || empty( $pt_obj->public ) ) {
-			$post_type = 'post';
-		}
-
-		// Date format: keep it as a date() pattern; strip tags but preserve spacing.
-		$post_date_format = isset( $_POST['post_date_format'] ) ? wp_strip_all_tags( wp_unslash( $_POST['post_date_format'] ) ) : '';
-		$post_date_format = substr( $post_date_format, 0, 50 );
-
-		// Separator: strip tags but DO NOT trim (leading/trailing spaces are meaningful).
-		$date_title_separator = isset( $_POST['date_title_separator'] ) ? wp_kses( wp_unslash( $_POST['date_title_separator'] ), array() ) : ' - ';
-		$date_title_separator = substr( $date_title_separator, 0, 20 );
-
-		$cache_duration = isset( $_POST['cache_duration'] ) ? absint( wp_unslash( $_POST['cache_duration'] ) ) : 43200;
-		if ( $cache_duration < 300 ) {
-			$cache_duration = 300; // Minimum 5 minutes.
-		}
-		if ( $cache_duration > 604800 ) {
-			$cache_duration = 604800; // Maximum 7 days.
-		}
-
-		// Validate against allowed lists.
-		if ( ! in_array( $year_header_level, BRAP_ALLOWED_HEADING_LEVELS, true ) ) {
-			$year_header_level = 'h2';
-		}
-		if ( ! in_array( $month_header_level, BRAP_ALLOWED_HEADING_LEVELS, true ) ) {
-			$month_header_level = 'h3';
-		}
-
-		$allowed_month_formats = array( 'MM', 'MMM', 'M', 'MMMM' );
-		if ( ! in_array( $month_format, $allowed_month_formats, true ) ) {
-			$month_format = 'MMM';
-		}
-
-		$allowed_year_formats = array( 'YY', 'YYYY' );
-		if ( ! in_array( $year_format, $allowed_year_formats, true ) ) {
-			$year_format = 'YYYY';
-		}
-
-		// Category filter from a dropdown of categories (slug).
-		$category_filter_slug = '';
-		if ( isset( $_POST['category_filter'] ) ) {
-			$category_filter_slug = sanitize_title( wp_unslash( $_POST['category_filter'] ) );
-			if ( '' !== $category_filter_slug ) {
-				$term = get_term_by( 'slug', $category_filter_slug, 'category' );
-				if ( ! $term || is_wp_error( $term ) ) {
-					$category_filter_slug = '';
-				}
-			}
-		}
-
-		// Save all settings in a single DB write via the consolidated option.
-		$settings = brap_get_all_settings();
-		$settings['add_year_header']           = $add_year_header;
-		$settings['year_header_level']         = $year_header_level;
-		$settings['add_month_header']          = $add_month_header;
-		$settings['month_header_level']        = $month_header_level;
-		$settings['show_year_in_month_header'] = $show_year_in_month;
-		$settings['month_format']              = $month_format;
-		$settings['year_format']               = $year_format;
-		$settings['post_order']                = $post_order;
-		$settings['post_type']                 = $post_type;
-		$settings['post_date_format']          = $post_date_format;
-		$settings['date_title_separator']      = $date_title_separator;
-		$settings['show_year_nav']             = $show_year_nav;
-		$settings['show_post_count']           = $show_post_count;
-		$settings['show_post_date']            = $show_post_date;
-		$settings['enable_cache']              = $enable_cache;
-		$settings['cache_duration']            = (string) $cache_duration;
-		$settings['remove_db_table_on_uninstall'] = $remove_on_uninstall;
-		$settings['category_filter']           = $category_filter_slug;
-		update_option( 'brap_settings', $settings );
-		brap_flush_settings_cache();
-
-		// Invalidate cached output now that settings changed.
-		brap_bump_cache_version();
-
-		// Redirect to avoid form re-submission on page refresh.
-		wp_safe_redirect( admin_url( 'options-general.php?page=all-posts-archive-page&settings-updated=true' ) );
-		exit;
-	}
 
 	// Show updated notice if redirected back.
 	if ( isset( $_GET['settings-updated'] ) ) {
@@ -989,8 +949,8 @@ function brap_render_admin_page() {
 
 	// Categories list for dropdown.
 	$categories = get_terms(
-		'category',
 		array(
+			'taxonomy'   => 'category',
 			'hide_empty' => false,
 		)
 	);
