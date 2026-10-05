@@ -3,7 +3,7 @@
  * Plugin Name: Binge Reading Archive Page
  * Plugin URI:  https://ericrosenberg.com/binge-reading-archive-page-template-for-wordpress/
  * Description: Display all posts month-by-month for binge reading. Uses your theme's styling by default. Supports optional category filtering and flexible month formats.
- * Version:     0.68
+ * Version:     0.69
  * Requires at least: 6.4
  * Requires PHP: 8.0
  * Tested up to: 7.1
@@ -1248,7 +1248,7 @@ function brap_render_admin_page() {
 					<?php esc_html_e( 'Nonprofit Manager', 'all-posts-archive-page' ); ?>
 				</a>
 			</h3>
-			<p style="margin:0 0 12px;"><?php echo esc_html__( 'Manage memberships, donations, newsletters, and events from one plugin — built specifically for 501(c)(3) nonprofits and community organizations.', 'all-posts-archive-page' ); ?></p>
+			<p style="margin:0 0 12px;"><?php echo esc_html__( 'Manage memberships, donations, newsletters, and events from one plugin, built specifically for 501(c)(3) nonprofits and community organizations.', 'all-posts-archive-page' ); ?></p>
 			<ul style="margin:0;padding-left:18px;line-height:1.6;">
 				<li><?php echo esc_html__( 'Member management with CSV/Mailchimp import', 'all-posts-archive-page' ); ?></li>
 				<li><?php echo esc_html__( 'Donation forms (Stripe, PayPal, Venmo)', 'all-posts-archive-page' ); ?></li>

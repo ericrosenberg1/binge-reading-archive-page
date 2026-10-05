@@ -4,8 +4,8 @@ Tags: archive, posts listing, binge reading, all themes
 Donate link: http://narrowbridgemedia.com/
 Requires at least: 6.0
 Requires PHP: 8.0
-Tested up to: 6.8
-Stable tag: 0.68
+Tested up to: 7.1
+Stable tag: 0.69
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
@@ -14,7 +14,7 @@ A plugin to create an "all posts since this site started by month" listing. Work
 == Description ==
 This plugin displays all posts by month in a chronological format for easy binge reading. You can simply add the shortcode `[binge_archive]` anywhere on your site to create a month-by-month archive of every post. It's a great way for new readers to dive into your entire blog history!
 
-Requires WordPress 6.0+ and PHP 8.0+ (WordPress 6.4+ and PHP 8.3+ recommended). Tested up to WordPress 6.8 and PHP 8.5.
+Requires WordPress 6.0+ and PHP 8.0+ (WordPress 6.4+ and PHP 8.3+ recommended). Tested up to WordPress 7.1 and PHP 8.5.
 
 For more details, visit the official plugin page here:
 [https://ericrosenberg.com/binge-reading-archive-page-template-for-wordpress/](https://ericrosenberg.com/binge-reading-archive-page-template-for-wordpress/)
@@ -57,6 +57,9 @@ Yes, there is a settings page under "Settings" → "Binge Reading Archive" where
 2. The settings page under Settings → Binge Reading Archive.
 
 == Upgrade Notice ==
+= 0.69 =
+Adds a Details link on the Plugins screen and a short list of the author's other plugins on the settings page.
+
 = 0.68 =
 Major architecture change: settings moved to a single consolidated option for faster saves and better multisite compatibility. Existing sites are migrated automatically. Updated minimum requirements to WordPress 6.4 and PHP 8.0. Settings page now uses POST-redirect-GET to prevent form re-submission on refresh.
 
@@ -76,6 +79,11 @@ This release adds post type and sort-order options, post counts, jump-to-year na
 Significant improvements have been introduced, including year/month heading controls and formatting options. Please visit the new settings page under "Settings" → "Binge Reading Archive" to configure or update your preferences. You can also choose whether to remove plugin data from your database upon uninstall.
 
 == Changelog ==
+= 0.69 =
+* Added a Details link on the Plugins screen.
+* Added an "Other WordPress Plugins" section to the settings page.
+* Updated the author link.
+
 = 0.68 =
 * Architecture: settings migrated from individual options (or the old custom table) to a single consolidated `brap_settings` option for one DB write per save. Existing sites migrate automatically on first load.
 * Multisite: single-option approach eliminates sub-site settings save failures.
