@@ -14,7 +14,7 @@ A plugin to create an "all posts since this site started by month" listing. Work
 == Description ==
 This plugin displays all posts by month in a chronological format for easy binge reading. You can simply add the shortcode `[binge_archive]` anywhere on your site to create a month-by-month archive of every post. It's a great way for new readers to dive into your entire blog history!
 
-Requires WordPress 6.0+ and PHP 8.0+ (WordPress 6.8+ and PHP 8.3+ recommended). Tested up to WordPress 6.8 and PHP 8.5.
+Requires WordPress 6.0+ and PHP 8.0+ (WordPress 6.4+ and PHP 8.3+ recommended). Tested up to WordPress 6.8 and PHP 8.5.
 
 For more details, visit the official plugin page here:
 [https://ericrosenberg.com/binge-reading-archive-page-template-for-wordpress/](https://ericrosenberg.com/binge-reading-archive-page-template-for-wordpress/)
