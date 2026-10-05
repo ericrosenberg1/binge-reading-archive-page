@@ -3,9 +3,9 @@
  * Plugin Name: Binge Reading Archive Page
  * Plugin URI:  https://ericrosenberg.com/binge-reading-archive-page-template-for-wordpress/
  * Description: Display all posts month-by-month for binge reading. Uses your theme's styling by default. Supports optional category filtering and flexible month formats.
- * Version:     0.66
- * Requires at least: 5.0
- * Requires PHP: 7.4
+ * Version:     0.68
+ * Requires at least: 6.4
+ * Requires PHP: 8.0
  * Tested up to: 7.1
  * PHP tested up to: 8.5
  * Recommended: WordPress 6.5+, PHP 8.2+
@@ -18,6 +18,9 @@
  *
  * @package BingeReadingArchivePage
  */
+
+// Allowed heading levels for reuse.
+define( 'BRAP_ALLOWED_HEADING_LEVELS', array( 'h1', 'h2', 'h3', 'h4', 'h5', 'h6' ) );
 
 if ( ! defined( 'ABSPATH' ) ) {
 	exit; // Prevent direct access.
@@ -32,49 +35,42 @@ function brap_load_textdomain() {
 add_action( 'plugins_loaded', 'brap_load_textdomain' );
 
 /**
- * Activation Hook: Create/upgrade settings table if it doesn't exist.
+ * Activation Hook: Seed defaults into the options table.
+ *
+ * The options table is multisite-safe (each site gets its own prefix),
+ * so we no longer need a custom table.  We seed the defaults on
+ * activation so that sites upgrading from the old table-based version
+ * pick up any new settings without a manual save.
  */
 register_activation_hook( __FILE__, 'brap_activate' );
 function brap_activate() {
-	global $wpdb;
+	$defaults = brap_default_settings();
 
-	$table_name      = $wpdb->prefix . 'brap_settings';
-	$charset_collate = $wpdb->get_charset_collate();
-
-	// dbDelta is picky: no IF NOT EXISTS, two spaces after PRIMARY KEY, one field per line.
-	$sql = "CREATE TABLE $table_name (
-		id mediumint(9) NOT NULL AUTO_INCREMENT,
-		setting_name varchar(50) NOT NULL,
-		setting_value varchar(50) NOT NULL,
-		PRIMARY KEY  (id),
-		UNIQUE KEY setting_name (setting_name)
-	) $charset_collate;";
-
-	require_once ABSPATH . 'wp-admin/includes/upgrade.php';
-	dbDelta( $sql );
-
-	// Insert default settings if they don't already exist.
-	$default_settings = brap_default_settings();
-
-	foreach ( $default_settings as $name => $value ) {
-		$exists = (int) $wpdb->get_var(
-			$wpdb->prepare( "SELECT COUNT(*) FROM $table_name WHERE setting_name = %s", $name )
-		);
-
-		if ( ! $exists ) {
-			$wpdb->insert(
-				$table_name,
-				array(
-					'setting_name'  => $name,
-					'setting_value' => $value,
-				),
-				array( '%s', '%s' )
-			);
+	// Single option approach: one DB write instead of ~20.
+	// Also handles migration from the old individual-options format.
+	$found_individual = false;
+	foreach ( array_keys( $defaults ) as $name ) {
+		if ( false !== get_option( 'brap_' . $name ) ) {
+			$found_individual = true;
+			break;
 		}
 	}
 
-	// Refresh the in-request settings cache after seeding defaults.
-	brap_flush_settings_cache();
+	if ( $found_individual ) {
+		// Migrate individual options into a single consolidated option.
+		$settings = array();
+		foreach ( $defaults as $name => $default_value ) {
+			$val = get_option( 'brap_' . $name );
+			$settings[ $name ] = ( false !== $val ) ? (string) $val : $default_value;
+		}
+		update_option( 'brap_settings', $settings );
+		// Clean up individual options.
+		foreach ( array_keys( $defaults ) as $name ) {
+			delete_option( 'brap_' . $name );
+		}
+	} else {
+		add_option( 'brap_settings', $defaults, '', true );
+	}
 }
 
 /**
@@ -122,30 +118,33 @@ function brap_default_settings() {
 }
 
 /**
- * Uninstall Hook: Allows table deletion if user chooses so in plugin settings.
+ * Uninstall Hook: Remove all plugin settings and caches.
  */
 register_uninstall_hook( __FILE__, 'brap_uninstall' );
 function brap_uninstall() {
-	global $wpdb;
+	// Check user's preference for removing data.
+	$remove_data = get_option( 'brap_remove_db_table_on_uninstall' );
 
-	$table_name = $wpdb->prefix . 'brap_settings';
-
-	// Check user's preference in our table for removing data.
-	$remove_data = $wpdb->get_var(
-		$wpdb->prepare( "SELECT setting_value FROM $table_name WHERE setting_name = %s", 'remove_db_table_on_uninstall' )
-	);
-
-	// If user has chosen 'yes', drop the table and remove plugin options/caches.
-	if ( 'yes' === $remove_data ) {
-		// dbDelta() cannot drop; direct query required.
-		$wpdb->query( "DROP TABLE IF EXISTS $table_name" ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
-		delete_option( 'brap_cache_version' );
-		brap_delete_cached_output();
+	// If user chose 'yes' (or anything non-'no'), remove everything.
+	if ( 'no' !== $remove_data ) {
+		delete_option( 'brap_settings' );
+		// Also clean up any leftover individual options from older versions.
+		$defaults = brap_default_settings();
+		foreach ( array_keys( $defaults ) as $name ) {
+			delete_option( 'brap_' . $name );
+		}
 	}
+
+	delete_option( 'brap_cache_version' );
+	brap_delete_cached_output();
 }
 
 /**
- * Helper: load all plugin settings in a single query, memoized per request.
+ * Helper: load all plugin settings from the WordPress options table.
+ *
+ * Uses a single consolidated option for performance (one DB read instead of ~20).
+ * Falls back to individual options for backwards compatibility with pre-0.68 sites,
+ * then migrates them to the consolidated option automatically.
  *
  * @return array<string,string>
  */
@@ -154,15 +153,45 @@ function brap_get_all_settings() {
 		return $GLOBALS['brap_settings_cache'];
 	}
 
-	global $wpdb;
-	$table_name = $wpdb->prefix . 'brap_settings';
-	$settings   = array();
+	$defaults = brap_default_settings();
 
-	// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-	$rows = $wpdb->get_results( "SELECT setting_name, setting_value FROM {$table_name}", ARRAY_A );
-	if ( is_array( $rows ) ) {
-		foreach ( $rows as $row ) {
-			$settings[ $row['setting_name'] ] = $row['setting_value'];
+	// Try the consolidated single option first.
+	$settings = get_option( 'brap_settings' );
+	if ( false !== $settings && is_array( $settings ) ) {
+		// Merge with defaults so new settings in future versions are picked up.
+		$settings = array_merge( $defaults, $settings );
+	} else {
+		// Fall back to individual options (migration path from pre-0.68).
+		$settings = array();
+		$found_any = false;
+		foreach ( $defaults as $name => $default_value ) {
+			$val = get_option( 'brap_' . $name );
+			if ( false !== $val ) {
+				$settings[ $name ] = (string) $val;
+				$found_any = true;
+			}
+		}
+
+		if ( $found_any ) {
+			// We found individual options — merge with defaults and save as consolidated.
+			$settings = array_merge( $defaults, $settings );
+			update_option( 'brap_settings', $settings );
+			// Clean up individual options.
+			foreach ( array_keys( $defaults ) as $name ) {
+				delete_option( 'brap_' . $name );
+			}
+		} else {
+			// No settings at all; use defaults.
+			$settings = $defaults;
+		}
+	}
+
+	// Ensure every default has a value (handles future plugin versions adding new settings).
+	foreach ( $defaults as $name => $default_value ) {
+		if ( ! isset( $settings[ $name ] ) || null === $settings[ $name ] ) {
+			$settings[ $name ] = $default_value;
+		} elseif ( ! is_string( $settings[ $name ] ) ) {
+			$settings[ $name ] = (string) $settings[ $name ];
 		}
 	}
 
@@ -202,40 +231,20 @@ function brap_get_setting( $name ) {
 }
 
 /**
- * Helper: update/insert setting in custom table.
+ * Helper: update a setting in the consolidated options array.
+ *
+ * Reads, updates, and writes back the single 'brap_settings' option
+ * so that one setting change is one DB write (not 19 writes for the
+ * entire settings form).
  *
  * @param string $name  Setting name.
  * @param string $value Setting value.
  * @return void
  */
 function brap_update_setting( $name, $value ) {
-	global $wpdb;
-
-	$table_name = $wpdb->prefix . 'brap_settings';
-
-	$exists = (int) $wpdb->get_var(
-		$wpdb->prepare( "SELECT COUNT(*) FROM $table_name WHERE setting_name = %s", $name )
-	);
-
-	if ( $exists ) {
-		$wpdb->update(
-			$table_name,
-			array( 'setting_value' => $value ),
-			array( 'setting_name'  => $name ),
-			array( '%s' ),
-			array( '%s' )
-		);
-	} else {
-		$wpdb->insert(
-			$table_name,
-			array(
-				'setting_name'  => $name,
-				'setting_value' => $value,
-			),
-			array( '%s', '%s' )
-		);
-	}
-
+	$settings = get_option( 'brap_settings', brap_default_settings() );
+	$settings[ $name ] = $value;
+	update_option( 'brap_settings', $settings );
 	brap_flush_settings_cache();
 }
 
@@ -533,7 +542,7 @@ function brap_display_posts_by_month( $atts = array() ) {
 	if ( 'on' === $enable_cache ) {
 		// Cache key varies only by what actually changes the output per instance.
 		// Settings/post changes bump the cache version, so they need not be keyed.
-		$cache_key = 'brap_archive_' . md5(
+		$cache_key = 'brap_archive_' . wp_hash(
 			wp_json_encode(
 				array(
 					'v'         => brap_get_cache_version(),
@@ -589,11 +598,10 @@ function brap_display_posts_by_month( $atts = array() ) {
 	}
 
 	// Validate select fields against allowed lists.
-	$allowed_heading_levels = array( 'h1', 'h2', 'h3', 'h4', 'h5', 'h6' );
-	if ( ! in_array( $year_header_level, $allowed_heading_levels, true ) ) {
+	if ( ! in_array( $year_header_level, BRAP_ALLOWED_HEADING_LEVELS, true ) ) {
 		$year_header_level = 'h2';
 	}
-	if ( ! in_array( $month_header_level, $allowed_heading_levels, true ) ) {
+	if ( ! in_array( $month_header_level, BRAP_ALLOWED_HEADING_LEVELS, true ) ) {
 		$month_header_level = 'h3';
 	}
 
@@ -839,6 +847,7 @@ function brap_render_admin_page() {
 		isset( $_POST['brap_save_settings_nonce'] ) &&
 		wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['brap_save_settings_nonce'] ) ), 'brap_save_settings_action' )
 	) {
+		// Sanitize and validate all inputs.
 		$add_year_header     = isset( $_POST['add_year_header'] ) ? 'on' : 'off';
 		$add_month_header    = isset( $_POST['add_month_header'] ) ? 'on' : 'off';
 		$show_year_in_month  = isset( $_POST['show_year_in_month_header'] ) ? 'on' : 'off';
@@ -879,11 +888,11 @@ function brap_render_admin_page() {
 			$cache_duration = 604800; // Maximum 7 days.
 		}
 
-		$allowed_heading_levels = array( 'h1', 'h2', 'h3', 'h4', 'h5', 'h6' );
-		if ( ! in_array( $year_header_level, $allowed_heading_levels, true ) ) {
+		// Validate against allowed lists.
+		if ( ! in_array( $year_header_level, BRAP_ALLOWED_HEADING_LEVELS, true ) ) {
 			$year_header_level = 'h2';
 		}
-		if ( ! in_array( $month_header_level, $allowed_heading_levels, true ) ) {
+		if ( ! in_array( $month_header_level, BRAP_ALLOWED_HEADING_LEVELS, true ) ) {
 			$month_header_level = 'h3';
 		}
 
@@ -909,29 +918,40 @@ function brap_render_admin_page() {
 			}
 		}
 
-		brap_update_setting( 'add_year_header', $add_year_header );
-		brap_update_setting( 'year_header_level', $year_header_level );
-		brap_update_setting( 'add_month_header', $add_month_header );
-		brap_update_setting( 'month_header_level', $month_header_level );
-		brap_update_setting( 'show_year_in_month_header', $show_year_in_month );
-		brap_update_setting( 'month_format', $month_format );
-		brap_update_setting( 'year_format', $year_format );
-		brap_update_setting( 'post_order', $post_order );
-		brap_update_setting( 'post_type', $post_type );
-		brap_update_setting( 'post_date_format', $post_date_format );
-		brap_update_setting( 'date_title_separator', $date_title_separator );
-		brap_update_setting( 'show_year_nav', $show_year_nav );
-		brap_update_setting( 'show_post_count', $show_post_count );
-		brap_update_setting( 'show_post_date', $show_post_date );
-		brap_update_setting( 'enable_cache', $enable_cache );
-		brap_update_setting( 'cache_duration', (string) $cache_duration );
-		brap_update_setting( 'remove_db_table_on_uninstall', $remove_on_uninstall );
-		brap_update_setting( 'category_filter', $category_filter_slug );
+		// Save all settings in a single DB write via the consolidated option.
+		$settings = brap_get_all_settings();
+		$settings['add_year_header']           = $add_year_header;
+		$settings['year_header_level']         = $year_header_level;
+		$settings['add_month_header']          = $add_month_header;
+		$settings['month_header_level']        = $month_header_level;
+		$settings['show_year_in_month_header'] = $show_year_in_month;
+		$settings['month_format']              = $month_format;
+		$settings['year_format']               = $year_format;
+		$settings['post_order']                = $post_order;
+		$settings['post_type']                 = $post_type;
+		$settings['post_date_format']          = $post_date_format;
+		$settings['date_title_separator']      = $date_title_separator;
+		$settings['show_year_nav']             = $show_year_nav;
+		$settings['show_post_count']           = $show_post_count;
+		$settings['show_post_date']            = $show_post_date;
+		$settings['enable_cache']              = $enable_cache;
+		$settings['cache_duration']            = (string) $cache_duration;
+		$settings['remove_db_table_on_uninstall'] = $remove_on_uninstall;
+		$settings['category_filter']           = $category_filter_slug;
+		update_option( 'brap_settings', $settings );
+		brap_flush_settings_cache();
 
 		// Invalidate cached output now that settings changed.
 		brap_bump_cache_version();
 
-		echo '<div class="updated"><p>' . esc_html__( 'Settings saved.', 'all-posts-archive-page' ) . '</p></div>';
+		// Redirect to avoid form re-submission on page refresh.
+		wp_safe_redirect( admin_url( 'options-general.php?page=all-posts-archive-page&settings-updated=true' ) );
+		exit;
+	}
+
+	// Show updated notice if redirected back.
+	if ( isset( $_GET['settings-updated'] ) ) {
+		echo '<div class="notice notice-success is-dismissible"><p>' . esc_html__( 'Settings saved.', 'all-posts-archive-page' ) . '</p></div>';
 	}
 
 	// Fetch current settings.
@@ -967,7 +987,8 @@ function brap_render_admin_page() {
 	$show_post_count    = $show_post_count ? $show_post_count : 'off';
 
 	// Categories list for dropdown.
-	$categories = get_categories(
+	$categories = get_terms(
+		'category',
 		array(
 			'hide_empty' => false,
 		)

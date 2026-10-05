@@ -2,10 +2,10 @@
 Contributors: Eric1985
 Tags: archive, posts listing, binge reading, all themes
 Donate link: http://narrowbridgemedia.com/
-Requires at least: 5.0
-Requires PHP: 7.4
-Tested up to: 7.1
-Stable tag: 0.66
+Requires at least: 6.0
+Requires PHP: 8.0
+Tested up to: 6.8
+Stable tag: 0.68
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
@@ -14,7 +14,7 @@ A plugin to create an "all posts since this site started by month" listing. Work
 == Description ==
 This plugin displays all posts by month in a chronological format for easy binge reading. You can simply add the shortcode `[binge_archive]` anywhere on your site to create a month-by-month archive of every post. It's a great way for new readers to dive into your entire blog history!
 
-Requires WordPress 5.0+ and PHP 7.4+ (WordPress 6.5+ and PHP 8.2+ recommended). Tested up to WordPress 7.1 and PHP 8.5.
+Requires WordPress 6.0+ and PHP 8.0+ (WordPress 6.8+ and PHP 8.3+ recommended). Tested up to WordPress 6.8 and PHP 8.5.
 
 For more details, visit the official plugin page here:
 [https://ericrosenberg.com/binge-reading-archive-page-template-for-wordpress/](https://ericrosenberg.com/binge-reading-archive-page-template-for-wordpress/)
@@ -57,6 +57,9 @@ Yes, there is a settings page under "Settings" → "Binge Reading Archive" where
 2. The settings page under Settings → Binge Reading Archive.
 
 == Upgrade Notice ==
+= 0.68 =
+Major architecture change: settings moved to a single consolidated option for faster saves and better multisite compatibility. Existing sites are migrated automatically. Updated minimum requirements to WordPress 6.4 and PHP 8.0. Settings page now uses POST-redirect-GET to prevent form re-submission on refresh.
+
 = 0.66 =
 Now requires PHP 7.4+ (up from 7.0, which has been unsupported since 2019). Also fixes a cache edge case around renamed/deleted categories and confirms compatibility with WordPress 7.1.
 
@@ -73,6 +76,19 @@ This release adds post type and sort-order options, post counts, jump-to-year na
 Significant improvements have been introduced, including year/month heading controls and formatting options. Please visit the new settings page under "Settings" → "Binge Reading Archive" to configure or update your preferences. You can also choose whether to remove plugin data from your database upon uninstall.
 
 == Changelog ==
+= 0.68 =
+* Architecture: settings migrated from individual options (or the old custom table) to a single consolidated `brap_settings` option for one DB write per save. Existing sites migrate automatically on first load.
+* Multisite: single-option approach eliminates sub-site settings save failures.
+* Performance: settings save is now one DB write instead of 19. Settings read is one DB read instead of ~20 (with in-request memoization).
+* Security: settings page now uses POST-redirect-GET pattern to prevent form re-submission on page refresh. Cache key uses `wp_hash()` instead of `md5()`.
+* Compatibility: raised minimum WordPress to 6.4 and minimum PHP to 8.0. Updated "Tested up to" to WordPress 6.8.
+* Deprecated the `get_categories()` alias in favor of `get_terms()` for the categories dropdown.
+* Fixed: removed redundant heading-level validation now shared via `BRAP_ALLOWED_HEADING_LEVELS` constant.
+* Removed unused `brap_update_setting()` helper (settings save is now bulk via `update_option('brap_settings', ...)`).
+
+= 0.67 =
+* Fixed: multisite settings save error ("لا يمكن فتح الإضافة"). Migrated from custom table to WordPress options table for full multisite compatibility.
+
 = 0.66 =
 * Fixed: renaming or deleting a category no longer risks serving a stale, category-filtered archive from cache. Category term changes now bump the cache version, the same way post and settings changes already did.
 * Performance: when output caching is turned off in Settings, the archive no longer builds and hashes a cache key it will never use.
