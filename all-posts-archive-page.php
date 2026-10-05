@@ -786,14 +786,15 @@ function brap_shortcode_handler( $atts = array() ) {
 add_action( 'init', 'brap_init_shortcodes' );
 
 /**
- * Add settings link to plugin list page.
+ * Add links on the plugin list page (Settings + learn more).
  *
  * @param array $links Existing plugin action links.
  * @return array Modified plugin action links.
  */
 function brap_add_settings_link( $links ) {
 	$settings_link = '<a href="' . esc_url( admin_url( 'options-general.php?page=all-posts-archive-page' ) ) . '">' . esc_html__( 'Settings', 'all-posts-archive-page' ) . '</a>';
-	array_unshift( $links, $settings_link );
+	$learn_link    = '<a href="https://wordpress.org/plugins/all-posts-archive-page/" target="_blank" rel="noopener noreferrer">' . esc_html__( 'Details', 'all-posts-archive-page' ) . '</a>';
+	array_unshift( $links, $settings_link, $learn_link );
 	return $links;
 }
 add_filter( 'plugin_action_links_' . plugin_basename( __FILE__ ), 'brap_add_settings_link' );
@@ -1233,9 +1234,28 @@ function brap_render_admin_page() {
 			</li>
 			<li>
 				<?php esc_html_e( 'Connect with the author around the web:', 'all-posts-archive-page' ); ?>
-				<a href="https://eric.money/" target="_blank" rel="noopener noreferrer">https://eric.money/</a>
+				<a href="https://ericrosenberg.com" target="_blank" rel="noopener noreferrer">ericrosenberg.com</a>
 			</li>
 		</ul>
+
+		<hr />
+
+		<h2><?php esc_html_e( 'Other WordPress Plugins by Eric Rosenberg', 'all-posts-archive-page' ); ?></h2>
+
+		<div style="max-width:600px;margin-top:10px;">
+			<h3 style="margin-bottom:4px;">
+				<a href="https://wordpress.org/plugins/nonprofit-manager/" target="_blank" rel="noopener noreferrer">
+					<?php esc_html_e( 'Nonprofit Manager', 'all-posts-archive-page' ); ?>
+				</a>
+			</h3>
+			<p style="margin:0 0 12px;"><?php echo esc_html__( 'Manage memberships, donations, newsletters, and events from one plugin — built specifically for 501(c)(3) nonprofits and community organizations.', 'all-posts-archive-page' ); ?></p>
+			<ul style="margin:0;padding-left:18px;line-height:1.6;">
+				<li><?php echo esc_html__( 'Member management with CSV/Mailchimp import', 'all-posts-archive-page' ); ?></li>
+				<li><?php echo esc_html__( 'Donation forms (Stripe, PayPal, Venmo)', 'all-posts-archive-page' ); ?></li>
+				<li><?php echo esc_html__( 'Email campaigns with AWS SES, SMTP, or wp_mail', 'all-posts-archive-page' ); ?></li>
+				<li><?php echo esc_html__( 'Public events calendar with iCal export', 'all-posts-archive-page' ); ?></li>
+			</ul>
+		</div>
 	</div>
 	<?php
 }
